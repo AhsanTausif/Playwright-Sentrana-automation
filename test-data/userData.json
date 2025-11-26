@@ -1,0 +1,20 @@
+{
+  "eligibleUser": {
+    "firstName": "John",
+    "lastName": "Reardon",
+    "dateOfBirth": "08/24/1980",
+    "phoneNumber": "415-555-2671",
+    "email": "samin.tausif@enosisbd.com",
+    "socialSecurity": "123456789",
+    "citizenship": "US Citizen",
+    "employerName": "Sentrana",
+    "employerStartDate": "04/15/2019",
+    "annualIncome": "180000",
+    "fullAddressToSelect": "23427 Tradewind Dr",
+    "partialAddress": "23427 Tradewind",
+    "expectedCity": "Ashburn",
+    "expectedState": "VA",
+    "expectedZip": "20148",
+    "projectCost": "28000"
+  }
+}
