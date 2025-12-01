@@ -6,7 +6,7 @@ test.describe('Pre-Screen Offer - Landing Page', () => {
   // Fresh page every time — perfect for negative paths, field validation, etc.
   test('Approved path - user should see generated offer', async ({ landingPage }) => {
     await landingPage.fillForm(userData.eligibleUser);
-    //await landingPage.generateOffer();
+    await landingPage.generateOffer(userData.eligibleUser);
 
     //await expect(landingPage.isOfferEligibleLocator).not.toBeVisible();
    // await expect(landingPage.declineReasonLocator).toBeVisible();

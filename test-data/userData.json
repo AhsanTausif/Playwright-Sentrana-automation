@@ -1,12 +1,12 @@
 {
   "eligibleUser": {
-    "firstName": "John",
-    "lastName": "Reardon",
+    "firstName": "Abheek",
+    "lastName": "Sambyal",
     "dateOfBirth": "08/24/1980",
     "phoneNumber": "415-555-2671",
     "email": "samin.tausif@enosisbd.com",
     "socialSecurity": "123456789",
-    "citizenship": "US Citizen",
+    "citizenship": "Green Card Holder",
     "employerName": "Sentrana",
     "employerStartDate": "04/15/2019",
     "annualIncome": "180000",
@@ -15,6 +15,7 @@
     "expectedCity": "Ashburn",
     "expectedState": "VA",
     "expectedZip": "20148",
-    "projectCost": "28000"
+    "projectCost": "28000",
+    "offerDisplayed": "367,900"
   }
 }

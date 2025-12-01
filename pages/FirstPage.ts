@@ -18,6 +18,8 @@ export class FirstPage {
   readonly zipInput: Locator;
   readonly projectCostInput: Locator;
   readonly generateOfferButton: Locator;
+  readonly creditAuthorizationCheckbox: Locator;
+  readonly creditAuthorizationNext: Locator;
   readonly offerDisplayed: Locator;  // Selector for pre-screen offer element
   //readonly declineReason: Locator;   // Selector for decline message
 
@@ -27,31 +29,23 @@ export class FirstPage {
     this.lastNameInput = page.locator('input.custom-input').nth(1);
     this.dateOfBirthInput = page.locator('app-date-field').filter({ hasText: 'Date of Birth' }).locator('input');
     // Phone Number Input
-    this.phoneNumberInput = page.locator('app-field')
-    .filter({ hasText: 'Phone Number' })
-    .locator('input.custom-input'); 
+    this.phoneNumberInput = page.locator('app-field').filter({ hasText: 'Phone Number' }).locator('input.custom-input'); 
     // Email Input
-    this.emailInput = page.locator('app-field')
-    .filter({ hasText: 'Email' })
-    .locator('input.custom-input');
+    this.emailInput = page.locator('app-field').filter({ hasText: 'Email' }).locator('input.custom-input');
     this.socialSecurityInput = page.getByPlaceholder('XXX-XX-XXXX');
     this.citizenshipSelect = page.getByText('Select Citizenship')
-    this.employerNameInput = page.locator('app-field')
-    .filter({ hasText: 'Employer Name' })
-    .locator('input.custom-input');
+    this.employerNameInput = page.locator('app-field').filter({ hasText: 'Employer Name' }).locator('input.custom-input');
     this.employerStartDateInput = page.locator('#mat-input-2');
-    this.annualIncomeInput = page.locator('app-field')
-    .filter({ hasText: 'Annual Gross Income' })
-    .locator('input.custom-input');
+    this.annualIncomeInput = page.locator('app-field').filter({ hasText: 'Annual Gross Income' }).locator('input.custom-input');
     this.streetAddressInput = page.locator('#formSugg');
     this.cityInput = page.getByPlaceholder('City');
     this.stateInput = page.getByPlaceholder('State');
     this.zipInput = page.getByPlaceholder('Zip Code');
-    this.projectCostInput = page.locator('app-field')
-    .filter({ hasText: 'What is the cost of your project' }) 
-    .locator('input.custom-input');    
+    this.projectCostInput = page.locator('app-field').filter({ hasText: 'What is the cost of your project' }) .locator('input.custom-input');    
     this.generateOfferButton = page.getByText('Generate Offer', { exact: true })
-    this.offerDisplayed = page.locator('input.custom-input[readonly]');
+    this.creditAuthorizationCheckbox = page.locator('app-checkbox').filter({ hasText: 'I/ We accept the Credit Authorization Agreement.'}).locator('input[type="checkbox"]');
+    this.creditAuthorizationNext = page.getByRole('button', { name: 'Next' }).nth(0);
+    this.offerDisplayed = page.locator('input.custom-input[readonly]').first();
    // this.offerDisplayed = page.locator('.pre-screen-offer');
    // this.declineReason = page.locator('.decline-reason');
   }
@@ -105,16 +99,72 @@ export class FirstPage {
     }
     
    /*Clicks the generate offer button */
-    async generateOffer() {
-        await test.step('Click Generate Offer Button', async () => {
-            await this.generateOfferButton.click();
-            // Wait for either the offer or the decline message to be visible
-            await expect(this.offerDisplayed).toBeVisible();
+    async generateOffer(data: any) { 
+    const expectedValue = `$${data.offerDisplayed}`; // For example: $367,000
+    const apiEndpoints = {
+    getProperty: 'https://api-dev.greenlyne.ai/api/get-property',
+    avmReport: 'https://api-dev.greenlyne.ai/api/get-avm-report-from-clear-capital',
+    titleInfo: 'https://api-dev.greenlyne.ai/api/get-title-info-from-first-american',
+    updateOffer: 'https://api-dev.greenlyne.ai/api/update-project-and-offer'    
+};
 
-            // confirming the API call succeeded and filled the amount.
-            await expect(this.offerDisplayed).not.toBeEmpty();
-        });
-    }
+    await test.step('Click Generate Offer Button, Validate API and Verify Offer', async () => {
+        
+        const responsePromises = [
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.getProperty) && response.status() === 200),
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.avmReport) && response.status() === 200),
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.titleInfo) && response.status() === 200),
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.updateOffer) && response.status() === 200)
+        ];
+        
+        // Click the button, triggering the API call
+        // We do not await this click yet, as we need to wait for the API call it triggers.
+        const clickPromise = this.generateOfferButton.click();
+        // Wait for the click to finish first (ensuring requests have been sent).
+        await clickPromise;
+
+        await this.creditAuthorizationCheckbox.click();
+
+        await this.creditAuthorizationNext.click();
+
+        // Await the click and all API promises simultaneously
+        const [propertyResponse, avmResponse, titleResponse, updateResponse] = await Promise.all(responsePromises);
+
+
+        //  get-property validation
+        const propertyBody = await propertyResponse.json();
+
+        await expect(propertyBody.owner_info.first_name).toEqual(data.firstName);
+        await expect(propertyBody.owner_info.last_name).toEqual(data.lastName);
+        await expect(propertyBody.property_info.address).toEqual(data.fullAddressToSelect);
+        await expect(propertyBody.is_pqe_qualified).toEqual(true);
+        await expect(propertyBody.is_property_present).toEqual(true);
+        await expect(propertyBody.is_name_matched).toEqual(true);
+        await expect(propertyBody.is_property_type_not_eligible).toEqual(false);
+
+        // avm report validation
+        const avmBody = await avmResponse.json();
+        await expect(avmBody.detail, 'Check AVM report message').toEqual("Avm fetched successfully");
+
+        // get-title-info validation
+        const titleBody = await titleResponse.json();
+        await expect(titleBody.message, 'Check title info message').toEqual("Successfully updated");
+        
+        // update-project-and-offer validation 
+        const updateBody = await updateResponse.json();
+        await expect(updateBody.project.is_loan_offered, 'Verify loan offered flag').toEqual(true);
+        await expect(updateBody.project.loan_offer_decision, 'Verify loan offer decision').toEqual("loan_offered");
+        await expect(updateBody.project.is_credit_data_found, 'Verify credit data found flag').toEqual(true);
+        await expect(updateBody.project.base_project_cost, 'Verify base project cost').toEqual(parseFloat(data.projectCost)); 
+        await expect(updateBody.under_writing_checks.has_all_passed, 'Verify all underwriting checks passed').toEqual(true);
+        
+        // Wait for the element to become visible (using the fixed, specific locator)
+        await expect(this.offerDisplayed).toBeVisible(); 
+        
+        // Assert that the input field has the exact expected value.
+        await expect(this.offerDisplayed).toHaveValue(expectedValue, { timeout: 30000 }); 
+      });
+   }
 
   // Update fillAndSelectAddress to accept dynamic expected values
     async fillAndSelectAddress(

@@ -10,19 +10,22 @@ export const test = base.extend<{
   // Basic fixture: just goes to the page, returns FirstPage instance
   landingPage: async ({ page }, use) => {
     const firstPage = new FirstPage(page);
-    // 1. Navigate without a strict wait condition
-    await page.goto('https://fbkc-dev.glyne.ai/myproject');
+    // Navigate without a strict wait condition
+    await page.goto('https://fbkc-dev.glyne.ai/myproject', { waitUntil: 'domcontentloaded' });
     
-    // 2. Explicitly wait for the most important element to be visible
-    // This confirms the page is fully rendered and interactive.
-    await firstPage.firstNameInput.waitFor({ state: 'visible', timeout: 100000 });
+    // NEW CRITICAL STEP: Wait for the network to be idle.
+    // This usually covers the initial page load, framework booting, and dynamic fetching (like feature flags) that cause the refresh.
+    await page.waitForLoadState('networkidle', { timeout: 60000 });
+    
+    // Verify an element is visible as a final check
+    await firstPage.firstNameInput.waitFor({ state: 'visible' });
     await use(firstPage);
   },
 
-  // Golden path fixture: fills form with eligible user and generates offer
+  // fills form with eligible user and generates offer
   eligibleLandingPage: async ({ landingPage }, use) => {
     await landingPage.fillForm(userData.eligibleUser);
-    //await landingPage.generateOffer();
+    await landingPage.generateOffer(userData.eligibleUser);
 
     await use(landingPage);
   },
