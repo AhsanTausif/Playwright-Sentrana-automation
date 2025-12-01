@@ -4,11 +4,10 @@ import userData from '../test-data/userData.json';
 
 // This is the only fixture you need right now
 export const test = base.extend<{
-  landingPage: FirstPage;
   eligibleLandingPage: FirstPage;   // pre-filled with eligible user + offer generated
 }>({
   // Basic fixture: just goes to the page, returns FirstPage instance
-  landingPage: async ({ page }, use) => {
+  eligibleLandingPage: async ({ page }, use) => {
     const firstPage = new FirstPage(page);
     // Navigate without a strict wait condition
     await page.goto('https://fbkc-dev.glyne.ai/myproject', { waitUntil: 'domcontentloaded' });
@@ -20,14 +19,6 @@ export const test = base.extend<{
     // Verify an element is visible as a final check
     await firstPage.firstNameInput.waitFor({ state: 'visible' });
     await use(firstPage);
-  },
-
-  // fills form with eligible user and generates offer
-  eligibleLandingPage: async ({ landingPage }, use) => {
-    await landingPage.fillForm(userData.eligibleUser);
-    await landingPage.generateOffer(userData.eligibleUser);
-
-    await use(landingPage);
   },
 });
 

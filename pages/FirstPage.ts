@@ -21,6 +21,7 @@ export class FirstPage {
   readonly creditAuthorizationCheckbox: Locator;
   readonly creditAuthorizationNext: Locator;
   readonly offerDisplayed: Locator;  // Selector for pre-screen offer element
+  readonly nextButtonLanding: Locator;
   //readonly declineReason: Locator;   // Selector for decline message
 
   constructor(page: Page) {
@@ -46,7 +47,7 @@ export class FirstPage {
     this.creditAuthorizationCheckbox = page.locator('app-checkbox').filter({ hasText: 'I/ We accept the Credit Authorization Agreement.'}).locator('input[type="checkbox"]');
     this.creditAuthorizationNext = page.getByRole('button', { name: 'Next' }).nth(0);
     this.offerDisplayed = page.locator('input.custom-input[readonly]').first();
-   // this.offerDisplayed = page.locator('.pre-screen-offer');
+    this.nextButtonLanding = page.getByRole('button', { name: 'Next' });
    // this.declineReason = page.locator('.decline-reason');
   }
 
@@ -97,74 +98,6 @@ export class FirstPage {
             await optionToSelect.click();
         });
     }
-    
-   /*Clicks the generate offer button */
-    async generateOffer(data: any) { 
-    const expectedValue = `$${data.offerDisplayed}`; // For example: $367,000
-    const apiEndpoints = {
-    getProperty: 'https://api-dev.greenlyne.ai/api/get-property',
-    avmReport: 'https://api-dev.greenlyne.ai/api/get-avm-report-from-clear-capital',
-    titleInfo: 'https://api-dev.greenlyne.ai/api/get-title-info-from-first-american',
-    updateOffer: 'https://api-dev.greenlyne.ai/api/update-project-and-offer'    
-};
-
-    await test.step('Click Generate Offer Button, Validate API and Verify Offer', async () => {
-        
-        const responsePromises = [
-            this.page.waitForResponse(response => response.url().includes(apiEndpoints.getProperty) && response.status() === 200),
-            this.page.waitForResponse(response => response.url().includes(apiEndpoints.avmReport) && response.status() === 200),
-            this.page.waitForResponse(response => response.url().includes(apiEndpoints.titleInfo) && response.status() === 200),
-            this.page.waitForResponse(response => response.url().includes(apiEndpoints.updateOffer) && response.status() === 200)
-        ];
-        
-        // Click the button, triggering the API call
-        // We do not await this click yet, as we need to wait for the API call it triggers.
-        const clickPromise = this.generateOfferButton.click();
-        // Wait for the click to finish first (ensuring requests have been sent).
-        await clickPromise;
-
-        await this.creditAuthorizationCheckbox.click();
-
-        await this.creditAuthorizationNext.click();
-
-        // Await the click and all API promises simultaneously
-        const [propertyResponse, avmResponse, titleResponse, updateResponse] = await Promise.all(responsePromises);
-
-
-        //  get-property validation
-        const propertyBody = await propertyResponse.json();
-
-        await expect(propertyBody.owner_info.first_name).toEqual(data.firstName);
-        await expect(propertyBody.owner_info.last_name).toEqual(data.lastName);
-        await expect(propertyBody.property_info.address).toEqual(data.fullAddressToSelect);
-        await expect(propertyBody.is_pqe_qualified).toEqual(true);
-        await expect(propertyBody.is_property_present).toEqual(true);
-        await expect(propertyBody.is_name_matched).toEqual(true);
-        await expect(propertyBody.is_property_type_not_eligible).toEqual(false);
-
-        // avm report validation
-        const avmBody = await avmResponse.json();
-        await expect(avmBody.detail, 'Check AVM report message').toEqual("Avm fetched successfully");
-
-        // get-title-info validation
-        const titleBody = await titleResponse.json();
-        await expect(titleBody.message, 'Check title info message').toEqual("Successfully updated");
-        
-        // update-project-and-offer validation 
-        const updateBody = await updateResponse.json();
-        await expect(updateBody.project.is_loan_offered, 'Verify loan offered flag').toEqual(true);
-        await expect(updateBody.project.loan_offer_decision, 'Verify loan offer decision').toEqual("loan_offered");
-        await expect(updateBody.project.is_credit_data_found, 'Verify credit data found flag').toEqual(true);
-        await expect(updateBody.project.base_project_cost, 'Verify base project cost').toEqual(parseFloat(data.projectCost)); 
-        await expect(updateBody.under_writing_checks.has_all_passed, 'Verify all underwriting checks passed').toEqual(true);
-        
-        // Wait for the element to become visible (using the fixed, specific locator)
-        await expect(this.offerDisplayed).toBeVisible(); 
-        
-        // Assert that the input field has the exact expected value.
-        await expect(this.offerDisplayed).toHaveValue(expectedValue, { timeout: 30000 }); 
-      });
-   }
 
   // Update fillAndSelectAddress to accept dynamic expected values
     async fillAndSelectAddress(
@@ -205,6 +138,143 @@ export class FirstPage {
         await expect(this.zipInput).toHaveValue(expectedZip);
     });
 
+ }
 
-}
+   /*Clicks the generate offer button */
+    async generateOffer(data: any) { 
+    const expectedValue = `$${data.offerDisplayed}`; // For example: $367,000
+    const apiEndpoints = {
+    getProperty: 'https://api-dev.greenlyne.ai/api/get-property',
+    avmReport: 'https://api-dev.greenlyne.ai/api/get-avm-report-from-clear-capital',
+    titleInfo: 'https://api-dev.greenlyne.ai/api/get-title-info-from-first-american',
+    updateOffer: 'https://api-dev.greenlyne.ai/api/update-project-and-offer',
+    generatePreOffer: "https://api-dev.greenlyne.ai/api/channel-partner/generate-pre-screen-offer"
+   };
+
+    await test.step('Click Generate Offer Button, Validate API and Verify Offer', async () => {
+        
+        
+    // Define a variable to track the occurrence ---
+    let updateOfferCount = 0; 
+    
+    // Define the promise to wait for the SECOND occurrence ---
+    const updateResponsePromise = this.page.waitForResponse(async response => {
+        const url = apiEndpoints.updateOffer;
+        // Check if this response matches the target URL and status
+        if (response.url().includes(url) && response.status() === 200) {
+            updateOfferCount++;
+            // Resolve the promise ONLY when the count is 2 (the second call)
+            if (updateOfferCount === 2) {
+                return true; 
+            }
+        }
+        return false;
+    });
+        
+        const responsePromises = [
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.getProperty) && response.status() === 200),
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.avmReport) && response.status() === 200),
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.titleInfo) && response.status() === 200),
+            updateResponsePromise,
+            this.page.waitForResponse(response => response.url().includes(apiEndpoints.generatePreOffer) && response.status() === 200)
+        ];
+        
+        // Click the button, triggering the API call
+        // We do not await this click yet, as we need to wait for the API call it triggers.
+        const clickPromise = this.generateOfferButton.click();
+        // Wait for the click to finish first (ensuring requests have been sent).
+        await clickPromise;
+
+        await this.creditAuthorizationCheckbox.click();
+
+        await this.creditAuthorizationNext.click();
+
+        // Await the click and all API promises simultaneously
+        const [propertyResponse, avmResponse, titleResponse, updateResponse, generateOfferResponse] = await Promise.all(responsePromises);
+
+
+        //  get-property validation
+        const propertyBody = await propertyResponse.json();
+
+        await expect(propertyBody.owner_info.first_name).toEqual(data.firstName);
+        await expect(propertyBody.owner_info.last_name).toEqual(data.lastName);
+        await expect(propertyBody.property_info.address).toEqual(data.fullAddressToSelect);
+        await expect(propertyBody.is_pqe_qualified).toEqual(true);
+        await expect(propertyBody.is_property_present).toEqual(true);
+        await expect(propertyBody.is_name_matched).toEqual(true);
+        await expect(propertyBody.is_property_type_not_eligible).toEqual(false);
+
+        // avm report validation
+        const avmBody = await avmResponse.json();
+        await expect(avmBody.detail, 'Check AVM report message').toEqual("Avm fetched successfully");
+
+        // get-title-info validation
+        const titleBody = await titleResponse.json();
+        await expect(titleBody.message, 'Check title info message').toEqual("Successfully updated");
+        
+        /* update-project-and-offer validation
+        const updateBody = await updateResponse.json();
+        await expect(updateBody.project.is_loan_offered, 'Verify loan offered flag').toEqual(true);
+        await expect(updateBody.project.loan_offer_decision, 'Verify loan offer decision').toEqual("loan_offered");
+        await expect(updateBody.project.is_credit_data_found, 'Verify credit data found flag').toEqual(true);
+        await expect(updateBody.project.base_project_cost, 'Verify base project cost').toEqual(parseFloat(data.projectCost)); 
+        await expect(updateBody.under_writing_checks.has_all_passed, 'Verify all underwriting checks passed').toEqual(true); */
+
+        // generate-pre-screen-offer validation
+        const generateOfferBody = await generateOfferResponse.json();
+        // Retrieve key numeric values from the JSON response
+        const totalFee = generateOfferBody.total_fee;
+        const creditLineAmount = generateOfferBody.credit_line_amount;
+        const loanAmount = generateOfferBody.loan_amount;
+        const drawAmount = generateOfferBody.draw_amount;
+        const desiredCreditLine = generateOfferBody.desired_credit_line;
+        const maxDesiredLimit = generateOfferBody.max_desired_credit_line_limit;
+
+        await test.step('Validate Offer Calculation Logic', async () => {
+
+        await expect(generateOfferBody.first_name).toEqual(data.firstName);
+        await expect(generateOfferBody.last_name).toEqual(data.lastName);
+        await expect(generateOfferBody.loan_decision, 'Verify loan offer decision').toEqual("loan_offered");    
+
+        // Validate: total_fee + credit_line_amount ≈ loan_amount
+        const sumOfFeeAndCredit = totalFee + creditLineAmount; // 2554.0 + 365346.0 = 367900.0
+            
+        // Check if the sum equals the loan_amount (which is 367900.0)
+        await expect(sumOfFeeAndCredit).toBeCloseTo(loanAmount, 2); 
+        
+        //"desired_credit_line" = project cost
+        await expect(desiredCreditLine).toEqual(parseFloat(data.projectCost)); 
+            
+
+        // Validate: "max_desired_credit_line_limit" = loan_amount
+        await expect(maxDesiredLimit).toEqual(loanAmount);
+        
+
+        // Validate: "draw_amount" = desired_credit_line + total fee
+        const expectedDrawAmount = desiredCreditLine + totalFee; // 28000.0 + 2554.0 = 30554.0
+        await expect(drawAmount).toEqual(expectedDrawAmount);
+            
+
+        // Validate: "project_failed_reasons": [] (Must be an empty array)
+        await expect(generateOfferBody.project_failed_reasons).toEqual([]);
+            
+        // Validate: "under_writing_checks" flags
+        await expect(generateOfferBody.under_writing_checks.is_notify_only).toEqual(true);
+        await expect(generateOfferBody.under_writing_checks.has_all_passed).toEqual(true);
+        
+   });  
+        // Wait for the element to become visible (using the fixed, specific locator)
+        await expect(this.offerDisplayed).toBeVisible(); 
+        
+        // Assert that the input field has the exact expected value.
+        await expect(this.offerDisplayed).toHaveValue(expectedValue, { timeout: 30000 }); 
+
+        await expect(this.nextButtonLanding).toBeEnabled();
+
+        await Promise.all([
+            this.page.waitForURL(/employment-info/, { timeout: 15000 }),
+            this.nextButtonLanding.click()
+        ])
+      });
+   }
 }  
