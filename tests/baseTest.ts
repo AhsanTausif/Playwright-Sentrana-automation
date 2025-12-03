@@ -1,5 +1,5 @@
 import { test as base } from '@playwright/test';
-import { FirstPage } from '../pages/FirstPage';
+import { FirstPage } from '../pages/LandingPage';
 import userData from '../test-data/userData.json';
 
 // This is the only fixture you need right now
@@ -10,7 +10,7 @@ export const test = base.extend<{
   eligibleLandingPage: async ({ page }, use) => {
     const firstPage = new FirstPage(page);
     // Navigate without a strict wait condition
-    await page.goto('https://fbkc-dev.glyne.ai/myproject', { waitUntil: 'domcontentloaded' });
+    await page.goto('/myproject', { waitUntil: 'domcontentloaded' });
     
     // NEW CRITICAL STEP: Wait for the network to be idle.
     // This usually covers the initial page load, framework booting, and dynamic fetching (like feature flags) that cause the refresh.
